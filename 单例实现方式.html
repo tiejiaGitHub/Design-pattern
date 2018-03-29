@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+</head>
+<body>
+<h2>单例模式的实现方式</h2>
+
+<h3>1.懒汉式，线程不安全。</h3>
+
+<pre><code>public class Singleton {
+    //声明一个私有静态变量
+    private static Singleton instance;
+    //私有的构建方法,此处不同语言,有不同的方式.有的是重写构建方法.
+    private Singleton(){...}
+    
+    //提供给外界获取单例对象的静态函数
+    public static Singleton getInstance() {
+        //1.判断静态量instance是否==null,若存在返回instance,不存在创建后返回.
+        if (instance == null) {
+            instance = new Singleton();
+        }
+        return instance;
+    }
+}
+</code></pre>
+
+<blockquote>
+<p>优点: 懒加载方式构建,简单,易用..</p>
+
+<p>缺点: 不支持多线程.没有互斥锁(同步锁),严格来说这种方式不算单例模式.更像懒加载的方式.</p>
+</blockquote>
+
+<h3>2,懒汉式,线程安全</h3>
+
+<pre><code>public class Singleton {
+    //声明一个私有静态变量
+    private static Singleton instance;
+    //私有的构建方法,此处不同语言,有不同的方式.有的是重写构建方法.
+    private Singleton(){...}
+    
+    //提供给外界获取单例对象的静态函数
+    public static synchronized Singleton getInstance() {
+        //1.判断静态量instance是否==null,若存在返回instance,不存在创建后返回.
+        if (instance == null) {
+            instance = new Singleton();
+        }
+        return instance;
+    }
+}
+</code></pre>
+
+<pre><code>//OC中两种方式,主要是在构建对象过程中,重写的分配内存空间的方法,加锁
++(instancetype)allocWithZone:(NSZone *)zone 
+{
+    //加互斥锁解决多线程访问安全问题
+    @synchronized(self) {
+        if (instance == nil) {
+            instance = [super allocWithZone:zone];
+        }
+    }
+    return instance;
+}
+ 
++(instancetype)allocWithZone:(NSZone *)zone 
+{
+    //GCD:一次性函数,本身就是线程安全的
+    static dispatch_once_t onceToken;
+    dispatch_once(&amp;onceToken, ^{
+        instance = [super allocWithZone:zone];
+    });
+    return instance;
+}
+
++(instancetype)getInstance 
+{
+    return [[Singleton alloc] init]
+}
+//严格而言OC还要重写,copy,mutableCopy方法
+-(id)copyWithZone:(NSZone *)zone
+{
+    return instance;
+}
+
+-(id)mutableCopyWithZone:(NSZone *)zone
+{
+    return instance;
+}
+</code></pre>
+
+<blockquote>
+<p>这种方式:类似懒加载方式,但能够在多线程中很好的工作.</p>
+
+<p>优点: 懒加载方式构建,只有在第一次调用时才会初始化,不使用不创建,避免内存浪费.</p>
+
+<p>缺点: 必须加锁(互斥锁/同步锁)才能保证单例,加锁影响效率.一般情况下,不需要同步.</p>
+</blockquote>
+
+<h3>3,饿汉式</h3>
+
+<pre><code>//饿汉式1,普遍使用这种饿汉式,简单易懂.
+public class Singleton {
+    private static Singleton instance = new Singleton();
+    private Singleton () {...}
+    
+    public static Singleton getInstance() {
+        return instance;
+    }
+}
+
+//饿汉式2,静态代码块方式,静态代码块的特点:只被执行一次.避免多线程,确保instance的唯一性.
+public class Singleton {
+    private static Singleton instance = null;
+    static{
+        instance = new Singleton();
+    }
+    private Singleton(){...}
+    public static Singleton getInstance(){
+        return instance;
+    }
+}
+</code></pre>
+
+<pre><code>//OC
++(void)load {
+    instance = [Singleton alloc] init];
+}
+
+//当类被加载到内存时,就会调用load方法,在load中没有必要加锁，因为此函数只会被调用一次.
++(id)allocWithZone:(NSZone *)zone {
+    if (instance == nil) { // 防止创建多次
+        instance = [super allocWithZone:zone];
+    }
+    return instance;
+}
+//严格而言重写copy,mutableCopy方法
+</code></pre>
+
+<blockquote>
+<p>饿汉式 基于classloder机制避免了多线程的同步问题.</p>
+
+<p>优点: 无需加锁,效率高,简单易懂.</p>
+
+<p>缺点: 类加载时就初始化了单例对象,过早占用内存.</p>
+</blockquote>
+
+<ul>
+<li>👀补充1:静态变量,方法 与 非静态变量,方法 的 区别??</li>
+</ul>
+
+<h3>4,双检锁/双重校验锁（DCL)</h3>
+
+<pre><code>public class Singleton {  
+    private static Singleton singleton;  
+    private Singleton (){...}
+      
+    public static Singleton getSingleton() {  
+        if (singleton == null) {  
+            synchronized (Singleton.class) {  
+                if (singleton == null) {  
+                    singleton = new Singleton();  
+                }  
+             }  
+        }  
+        return singleton;  
+    }  
+} 
+</code></pre>
+
+<blockquote>
+<p>双锁机制，安全且在多线程情况下能保持高性能。
+采用了懒加载方式.</p>
+</blockquote>
+
+<h3>5,静态内部类实现方式</h3>
+
+<pre><code>//👀补充2final修饰符
+public class Singleton {  
+    private static class SingletonHolder {  
+        private static final Singleton INSTANCE = new Singleton();  
+    }  
+    private Singleton (){...}  
+    
+    public static final Singleton getInstance() {  
+        return SingletonHolder.INSTANCE;  
+    }  
+}   
+</code></pre>
+
+<blockquote>
+<p>这种方式能达到双检锁方式一样的功效(保证效率)，且实现更简单,而且对静态域使用了延迟初始化.</p>
+</blockquote>
+
+<ul>
+<li>原理:这种方式也是利用了classload机制保证初始化instance时,只有一个线程.</li>
+<li>🔥静态内部类实现方式 与 饿汉式不同的是:
+
+<ul>
+<li>饿汉式:第一次加载Singleton时,instance就会被实例化,没有懒汉式的懒加载效果.</li>
+<li>静态内部类方式:第一次加载Singleton类时,不会初始化instance,只有在第一次调用getInstance()函数时,私用SingletonHolder类才会被加载,这时才初始化instance.</li>
+<li>优点:既能保证线程安全,保证单例对象的唯一性,又能做到延迟单例的初始化.</li>
+<li>补充懒汉式相对饿汉式的优点(如实例化单例对象的过程很耗费资源,会导致编辑阶段时间增长,懒汉式可避免.)</li>
+</ul></li>
+</ul>
+
+<h3>6, 枚举</h3>
+
+<blockquote>
+<p>它不仅能避免多线程同步问题，而且还自动支持序列化机制，防止反序列化重新创建新的对象，绝对防止多次实例化.
+<code>
+public enum SingletonEnum {
+    INSTANCE;
+    public void doSomething() {
+        System.out.println(&quot;do something&quot;);
+    }
+}
+</code></p>
+</blockquote>
+
+<h3>7,容器实现单例</h3>
+
+<blockquote>
+<p>SingletonManager可以管理多个单例类型，使用时根据key获取对象对应类型的对象。这种方式可以通过统一的接口获取操作，隐藏了具体实现，降低了耦合度。</p>
+</blockquote>
+
+<pre><code>import java.util.HashMap;
+import java.util.Map;
+public class SingletonManager {
+    private static Map&lt;String, Object&gt; objMap = new HashMap&lt;String, Object&gt;();
+
+    public static void regsiterService(String key, Object instance) {
+        if (!objMap.containsKey(key)) {
+            objMap.put(key, instance);
+        }
+    }
+
+    public static Object getService(String key) {
+        return objMap.get(key);
+    }
+}
+
+</code></pre>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<h2>补充知识点</h2>
+
+<h5>补充1:</h5>
+
+<ul>
+<li>👀补充1:静态变量,方法 与 非静态变量,方法 的 区别??
+
+<ul>
+<li>静态变量/方法是在类中使用staitc修饰，在类定义的时候已经被装载和分配内存空间.</li>
+<li>非静态变量/方法不用static修饰,在类定义时不会分配内存,只有在类被实例化对象时,才会为非静态变量分配内存. 而静态方法:只有在对象调用时,才会为此分配内存.</li>
+<li>静态方法中只能调用静态变量或者方法，不能调用非静态方法或者非静态成员.</li>
+<li>非静态方法既可以调用静态变量/方法,又可以调用非静态变量/方法。</li>
+</ul></li>
+</ul>
+
+<h5>补充2:</h5>
+
+<pre><code>// final修饰的类不能被继承。
+1, final修饰的类不能被继承,只能用.
+2, final不仅可以修饰类，还可以修饰变量，被final修饰的变量就是一个常量，只能赋值一次
+</code></pre>
+
+<h5>补充3:</h5>
+
+<pre><code>1,定义const常量,具有不可变性. 2,避免不必要的内存分配
+//const与宏定义区别?
+// 宏的用法:1,定义常用字符串 2, 定义一段代码
+// const的用法: 1,const仅用来修饰右边的变量 2,被const修饰的变量是只读的.
+// 区别:
+    // 1,编译时刻不同,const在预编译阶段,const在编译阶段.
+    // 2, 宏不会检查代码错误,只能替换,const会编译报错.
+    // 3, 宏的好处:能定义代码,字符串,方法,参数,const不能定义代码,方法.宏的缺点:大量使用宏,易引起预编译时间过久,每次编译都需要重新替换.
+    //eg: int *const p; p为只读, *p为变量.(原则:值修饰右侧变量)
+//const用途:
+    // 1.提供一个方法，这个方法的参数是地址，里面只能通过地址读取值,不能通过地址修改值
+    // 2.需求2:提供一个方法，这个方法的参数是地址，里面不能修改参数的地址。
+
+#include &lt;stdio.h&gt;
+
+int main(int argc, const char * argv[]) {
+    int a = 6;
+    test1(&amp;a);
+    printf(&quot;Hello, World!\n&quot;);
+    return 0;
+}
+
+int test1(int *const a)
+//int test2(int const *a)
+{
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    int b = 10;
+    a = &amp;b;
+    *a = b;
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    return 1;
+}
+
+
+int test1(int *const a)
+{
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    int b = 10;
+    //编译报错,不能修改a的地址,只能修改a访问的值.
+//    a = &amp;b;
+    *a = b;
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    return 1;
+}
+
+int test2(int const *a)
+{
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    int b = 10;
+    a = &amp;b;
+    //编译报错,不能通过地址修改值,只能修改地址a,不能通过a修改访问的内存空间.
+//    *a = b;
+    printf(&quot;🔥🔥🔥🔥====%zd\n&quot;, *a);
+    return 1;
+}
+</code></pre>
+
+<h2>🔥 双锁机制 与 懒汉式 的对比,你更愿使用哪种实现方式?</h2>
+
+<h2>🔥 单例模式唯一实例为什么必须为静态量?</h2>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+</body>
+</html>
